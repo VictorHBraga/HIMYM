@@ -1,0 +1,66 @@
+import requests
+from bs4 import BeautifulSoup
+lst = []
+
+from google.colab import auth
+auth.authenticate_user()
+
+import gspread
+from oauth2client.client import GoogleCredentials
+
+gc = gspread.authorize(GoogleCredentials.get_application_default())
+
+planilha = gc.open('Himym')
+page = planilha.sheet1
+
+def titulo(soup, k):
+    n = soup.find_all(class_="list_item")
+    txt = n[k].find_all('a')
+    return txt[1].text
+    
+def nota(soup, k):
+    n = soup.find_all(class_="list_item")
+    txt = n[k].find_all(class_='ipl-rating-star__rating')
+    return txt[0].text
+    
+for i in range(1,10):
+    link = f'https://www.imdb.com/title/tt0460649/episodes?season={i}'
+    page = requests.get(link)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    n = soup.find_all(class_="list_item")
+    for k in range(0, len(n)):
+        lst += [[i, k+1, titulo(soup,k), nota(soup,k)]]
+
+for i in range(0, len(lst)):
+    print(lst[i])
+    
+for i in range(0, len(lst)):
+    notas = [0, 6, 7, 7.8, 8.5, 9.2, 10]
+    avaliacao = 'Péssimo, Ruim, Regular, Bom, Muito Bom, Sensacional'.split(',')
+    x = float(lst[i][3])
+    for k in range(0, 7):
+        if notas[k] <= x < notas[k+1]:
+            lst[i] += [avaliacao[k], k]
+            break
+
+for i in range(0, len(lst)):
+    print(lst[i])
+
+planilha = gc.open('Himym')
+page = planilha.get_worksheet(0)
+linhas = len(lst)+1
+col = 6
+
+lista = page.range(1,1, linhas, col)
+print(len(lista))
+print(6*len(lst))
+i = 0
+for l in range(0, len(lst)):
+    for c in range(0, 6):
+        lista[i].value = lst[l][c]
+        i += 1
+
+print(lista)
+
+page.update_cells(lista)
+print('Dados Atualizados')
